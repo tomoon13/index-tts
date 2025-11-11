@@ -49,6 +49,7 @@ for file in [
 
 import gradio as gr
 from indextts.infer_v2 import IndexTTS2
+import speech_length_patch  # PATCH: Enable speech_length parameter support (PR #505)
 from tools.i18n.i18n import I18nAuto
 
 i18n = I18nAuto(language="Auto")
