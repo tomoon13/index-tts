@@ -295,38 +295,14 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             else:
                 print(f"  {key}: [REDACTED]")
 
-        # Log form data for multipart requests
+        # Note: We cannot log form data here as it would consume the request body
+        # and prevent FastAPI from reading it in the endpoint
         if request.method in ["POST", "PUT", "PATCH"]:
             content_type = request.headers.get("content-type", "")
-
             if "multipart/form-data" in content_type:
-                print("\nForm Data: (multipart/form-data)")
-                # Store original body for downstream processing
-                form_data = await request.form()
-
-                for key, value in form_data.items():
-                    if isinstance(value, UploadFile):
-                        file_size_mb = value.size / (1024 * 1024) if value.size else 0
-                        print(f"  {key}: [FILE] {value.filename} ({file_size_mb:.2f} MB, {value.content_type})")
-                    else:
-                        # Truncate long text values
-                        str_value = str(value)
-                        if len(str_value) > 100:
-                            str_value = str_value[:100] + "..."
-                        print(f"  {key}: {str_value}")
-
-                # Reconstruct request with form data
-                request._form = form_data
-
+                print("\nForm Data: [multipart/form-data - will be logged in endpoint]")
             elif "application/json" in content_type:
-                try:
-                    body = await request.body()
-                    if body:
-                        json_data = json.loads(body)
-                        print("\nJSON Body:")
-                        print(f"  {json.dumps(json_data, indent=2, ensure_ascii=False)}")
-                except Exception as e:
-                    print(f"\n⚠ Could not parse JSON body: {e}")
+                print("\nJSON Body: [will be logged in endpoint]")
 
         print("=" * 80)
 
@@ -741,6 +717,38 @@ async def generate_speech(
     - quick_streaming_tokens: Enable quick streaming mode for faster response
     - verbose: Enable detailed logging for debugging
     """
+    # Log received parameters
+    print("\n" + "=" * 60)
+    print("📝 Generate Speech Request Parameters")
+    print("=" * 60)
+    print(f"Text: {text[:100]}{'...' if len(text) > 100 else ''}")
+    print(f"Prompt Audio: {prompt_audio.filename} ({prompt_audio.size / 1024 / 1024:.2f} MB)")
+    if emo_audio:
+        print(f"Emotion Audio: {emo_audio.filename} ({emo_audio.size / 1024 / 1024:.2f} MB)")
+    print("\nGeneration Parameters:")
+    print(f"  speech_length: {speech_length}")
+    print(f"  temperature: {temperature}")
+    print(f"  top_p: {top_p}")
+    print(f"  top_k: {top_k}")
+    print(f"  emo_weight: {emo_weight}")
+    print(f"  max_text_tokens_per_segment: {max_text_tokens_per_segment}")
+    print("\nAdvanced Parameters:")
+    print(f"  do_sample: {do_sample}")
+    print(f"  length_penalty: {length_penalty}")
+    print(f"  num_beams: {num_beams}")
+    print(f"  repetition_penalty: {repetition_penalty}")
+    print(f"  max_mel_tokens: {max_mel_tokens}")
+    print("\nSegmentation:")
+    print(f"  interval_silence: {interval_silence}")
+    print(f"  quick_streaming_tokens: {quick_streaming_tokens}")
+    print(f"  verbose: {verbose}")
+    print("\nEmotion Control:")
+    print(f"  emo_mode: {emo_mode}")
+    if emo_text:
+        print(f"  emo_text: {emo_text}")
+    print(f"  emo_random: {emo_random}")
+    print("=" * 60 + "\n")
+
     # Validate inputs
     if len(text) > Config.MAX_TEXT_LENGTH:
         raise HTTPException(
