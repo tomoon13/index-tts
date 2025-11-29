@@ -7,7 +7,7 @@ Centralized configuration management using Pydantic Settings.
 
 import os
 from functools import lru_cache
-from typing import Set
+from typing import List, Set
 
 from pydantic_settings import BaseSettings
 
@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     DEBUG: bool = False
+
+    # CORS settings
+    CORS_ORIGINS: List[str] = ["*"]  # 允許的來源，生產環境應設定具體域名
+    CORS_ALLOW_CREDENTIALS: bool = True
+    CORS_ALLOW_METHODS: List[str] = ["*"]
+    CORS_ALLOW_HEADERS: List[str] = ["*"]
 
     # Database settings
     DATABASE_URL: str = "sqlite+aiosqlite:///./data/indextts.db"

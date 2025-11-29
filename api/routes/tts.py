@@ -217,6 +217,7 @@ async def generate_speech(
     task_service = TaskService(session)
     await task_service.create_task(
         task_id=task_id,
+        user_id=user.id,
         input_text=text,
         speech_length=speech_length,
         temperature=temperature,
@@ -258,7 +259,7 @@ async def generate_speech(
     print(f"✓ Task {task_id} created and queued for user {user.id}")
 
     return GenerateResponse(
-        task_id=task_id,
+        taskId=task_id,
         status=TaskStatusEnum.PENDING,
         message="Task created successfully",
     )

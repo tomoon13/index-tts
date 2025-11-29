@@ -6,10 +6,10 @@ ORM model for users with email/password authentication.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from sqlalchemy import Boolean, DateTime, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from api.models.base import Base, TimestampMixin
 
@@ -86,6 +86,14 @@ class User(Base, TimestampMixin):
         default=0,
         nullable=False,
         comment="Total number of TTS generations",
+    )
+
+    # Relationships
+    tasks: Mapped[List["Task"]] = relationship(
+        "Task",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
 
     def __repr__(self) -> str:

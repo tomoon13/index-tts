@@ -124,3 +124,25 @@ async def get_optional_user(
         return await get_current_user(credentials, session)
     except HTTPException:
         return None
+
+
+async def get_current_admin_user(
+    user: User = Depends(get_current_user),
+) -> User:
+    """
+    Dependency to get the current user and verify admin status.
+
+    Raises 403 Forbidden if user is not an admin.
+
+    Usage:
+        @router.get("/admin-only")
+        async def admin_route(user: User = Depends(get_current_admin_user)):
+            return {"admin_id": user.id}
+    """
+    if not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+
+    return user

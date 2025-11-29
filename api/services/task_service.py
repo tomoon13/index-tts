@@ -25,6 +25,7 @@ class TaskService:
     async def create_task(
         self,
         task_id: str,
+        user_id: int,
         input_text: str,
         speech_length: int = 0,
         temperature: float = 0.8,
@@ -36,6 +37,7 @@ class TaskService:
         """Create a new task"""
         task = Task(
             id=task_id,
+            user_id=user_id,
             status=TaskStatus.PENDING,
             progress=0.0,
             message="Task queued",
@@ -51,21 +53,28 @@ class TaskService:
         await self.session.flush()
         return task
 
-    async def get_task(self, task_id: str) -> Optional[Task]:
-        """Get a task by ID"""
-        result = await self.session.execute(
-            select(Task).where(Task.id == task_id)
-        )
+    async def get_task(self, task_id: str, user_id: Optional[int] = None) -> Optional[Task]:
+        """Get a task by ID, optionally filtered by user_id"""
+        query = select(Task).where(Task.id == task_id)
+
+        if user_id is not None:
+            query = query.where(Task.user_id == user_id)
+
+        result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
     async def get_tasks(
         self,
+        user_id: Optional[int] = None,
         status: Optional[TaskStatus] = None,
         limit: int = 100,
         offset: int = 0,
     ) -> List[Task]:
-        """Get tasks with optional filtering"""
+        """Get tasks with optional filtering by user and status"""
         query = select(Task).order_by(Task.created_at.desc())
+
+        if user_id is not None:
+            query = query.where(Task.user_id == user_id)
 
         if status:
             query = query.where(Task.status == status)

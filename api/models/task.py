@@ -9,8 +9,8 @@ import enum
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, Enum, Float, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import DateTime, Enum, Float, String, Text, ForeignKey, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from api.models.base import Base, TimestampMixin
 
@@ -34,6 +34,17 @@ class Task(Base, TimestampMixin):
         primary_key=True,
         comment="Task UUID (hex format)",
     )
+
+    # Foreign key to user
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="User who created this task",
+    )
+
+    # Relationship
+    user: Mapped["User"] = relationship("User", back_populates="tasks")
 
     # Status tracking
     status: Mapped[TaskStatus] = mapped_column(

@@ -8,7 +8,9 @@ Pydantic schemas for authentication.
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import EmailStr, Field, field_validator, ConfigDict
+
+from api.schemas.base import BaseModel
 
 
 class RegisterRequest(BaseModel):
@@ -27,11 +29,14 @@ class RegisterRequest(BaseModel):
         pattern=r"^[a-zA-Z0-9_-]+$",
         description="Optional username (alphanumeric, underscore, hyphen)",
     )
-    display_name: Optional[str] = Field(
+    displayName: Optional[str] = Field(
         None,
         max_length=100,
         description="Display name",
+        alias="displayName",
     )
+
+    model_config = ConfigDict(populate_by_name=True)
 
     @field_validator("password")
     @classmethod
@@ -43,19 +48,23 @@ class RegisterRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     """Request model for user login"""
-    email: EmailStr = Field(..., description="User email address")
+    identifier: str = Field(..., description="Username or email address", serialization_alias="identifier")
     password: str = Field(..., description="User password")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class TokenResponse(BaseModel):
     """Response model for successful authentication"""
-    access_token: str = Field(..., description="JWT access token")
-    token_type: str = Field(default="bearer", description="Token type")
-    expires_in: int = Field(..., description="Token expiration time in seconds")
+    accessToken: str = Field(..., description="JWT access token", serialization_alias="accessToken")
+    tokenType: str = Field(default="bearer", description="Token type", serialization_alias="tokenType")
+    expiresIn: int = Field(..., description="Token expiration time in seconds", serialization_alias="expiresIn")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class UserInfo(BaseModel):
-    """User information response"""
+    """User information response - automatically converts snake_case to camelCase"""
     id: int = Field(..., description="User ID")
     email: str = Field(..., description="User email")
     username: Optional[str] = Field(None, description="Username")
@@ -64,18 +73,18 @@ class UserInfo(BaseModel):
     is_verified: bool = Field(default=False, description="Email verified status")
     is_admin: bool = Field(default=False, description="Admin status")
     total_generations: int = Field(default=0, description="Total TTS generations")
-    created_at: datetime
-    last_login_at: Optional[datetime] = None
-
-    model_config = {"from_attributes": True}
+    created_at: datetime = Field(..., description="Created timestamp")
+    last_login_at: Optional[datetime] = Field(None, description="Last login timestamp")
 
 
 class AuthResponse(BaseModel):
     """Response model for successful authentication with user info"""
-    access_token: str
-    token_type: str = "bearer"
-    expires_in: int
+    accessToken: str = Field(..., serialization_alias="accessToken")
+    tokenType: str = Field(default="bearer", serialization_alias="tokenType")
+    expiresIn: int = Field(..., serialization_alias="expiresIn")
     user: UserInfo
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MessageResponse(BaseModel):
@@ -85,10 +94,13 @@ class MessageResponse(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     """Request model for password change"""
-    current_password: str = Field(..., description="Current password")
-    new_password: str = Field(
+    currentPassword: str = Field(..., description="Current password", alias="currentPassword")
+    newPassword: str = Field(
         ...,
         min_length=8,
         max_length=100,
         description="New password (min 8 characters)",
+        alias="newPassword",
     )
+
+    model_config = ConfigDict(populate_by_name=True)

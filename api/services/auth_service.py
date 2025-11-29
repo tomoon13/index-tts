@@ -133,9 +133,14 @@ class UserService:
         await self.session.flush()
         return user
 
-    async def authenticate(self, email: str, password: str) -> Optional[User]:
-        """Authenticate user with email and password"""
-        user = await self.get_user_by_email(email)
+    async def authenticate(self, identifier: str, password: str) -> Optional[User]:
+        """Authenticate user with username/email and password"""
+        # Try to find user by email first
+        user = await self.get_user_by_email(identifier)
+
+        # If not found by email, try username
+        if not user:
+            user = await self.get_user_by_username(identifier)
 
         if not user:
             return None
@@ -176,3 +181,69 @@ class UserService:
             await self.session.flush()
             return True
         return False
+
+    async def get_all_users(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> tuple[list[User], int]:
+        """Get all users with pagination"""
+        from sqlalchemy import func
+
+        # Get total count
+        count_result = await self.session.execute(
+            select(func.count(User.id))
+        )
+        total = count_result.scalar() or 0
+
+        # Get users
+        result = await self.session.execute(
+            select(User)
+            .order_by(User.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        users = list(result.scalars().all())
+
+        return users, total
+
+    async def update_user(
+        self,
+        user_id: int,
+        email: Optional[str] = None,
+        username: Optional[str] = None,
+        display_name: Optional[str] = None,
+        is_active: Optional[bool] = None,
+        is_verified: Optional[bool] = None,
+        is_admin: Optional[bool] = None,
+    ) -> Optional[User]:
+        """Update user fields"""
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            return None
+
+        if email is not None:
+            user.email = email.lower()
+        if username is not None:
+            user.username = username
+        if display_name is not None:
+            user.display_name = display_name
+        if is_active is not None:
+            user.is_active = is_active
+        if is_verified is not None:
+            user.is_verified = is_verified
+        if is_admin is not None:
+            user.is_admin = is_admin
+
+        await self.session.flush()
+        return user
+
+    async def delete_user(self, user_id: int) -> bool:
+        """Delete a user (cascade deletes tasks)"""
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            return False
+
+        await self.session.delete(user)
+        await self.session.flush()
+        return True

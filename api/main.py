@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import Response
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 # Add project root to path
@@ -26,7 +27,7 @@ sys.path.insert(0, os.path.join(project_root, "indextts"))
 from api.config import settings
 from api.database import init_db, close_db, async_session_maker
 from api.dependencies import set_tts_model, set_task_semaphore
-from api.routes import health_router, tts_router, tasks_router, auth_router
+from api.routes import health_router, tts_router, tasks_router, auth_router, users_router
 from api.services import TaskService
 
 
@@ -93,6 +94,16 @@ async def lifespan(app: FastAPI):
     # Initialize database
     print("\nInitializing database...")
     await init_db()
+
+    # Run migrations
+    from api.database import run_migrations
+    async with async_session_maker() as session:
+        await run_migrations(session)
+
+    # Seed database with default data
+    from api.database import seed_database
+    async with async_session_maker() as session:
+        await seed_database(session)
 
     # Check JWT secret
     if settings.JWT_SECRET_KEY == "change-this-to-a-secure-random-string":
@@ -223,11 +234,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+    allow_methods=settings.CORS_ALLOW_METHODS,
+    allow_headers=settings.CORS_ALLOW_HEADERS,
+)
+
 # Add middleware
 app.add_middleware(RequestLoggingMiddleware)
 
 # Include routers
 app.include_router(health_router)
 app.include_router(auth_router)
+app.include_router(users_router)
 app.include_router(tts_router)
 app.include_router(tasks_router)

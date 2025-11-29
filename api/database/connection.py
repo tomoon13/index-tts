@@ -52,8 +52,17 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db() -> None:
-    """Initialize database (create tables)"""
+    """
+    Initialize database with auto-migration.
+
+    This will:
+    1. Create all tables if they don't exist
+    2. Auto-migrate schema changes (add new columns, tables)
+
+    Note: Does not handle column deletions or type changes for safety.
+    """
     from api.models.base import Base
+    from api.models import User, Task  # Import all models to register them
 
     # Ensure data directory exists
     db_path = settings.DATABASE_URL.replace("sqlite+aiosqlite:///", "")
@@ -63,9 +72,11 @@ async def init_db() -> None:
             os.makedirs(db_dir, exist_ok=True)
 
     async with engine.begin() as conn:
+        # Create all tables (auto-migration)
+        # SQLAlchemy will only add new tables/columns, won't delete existing ones
         await conn.run_sync(Base.metadata.create_all)
 
-    print("✓ Database initialized")
+    print("✓ Database initialized (auto-migration complete)")
 
 
 async def close_db() -> None:

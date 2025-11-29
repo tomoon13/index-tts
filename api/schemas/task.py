@@ -9,7 +9,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class TaskStatusEnum(str, Enum):
@@ -22,13 +22,15 @@ class TaskStatusEnum(str, Enum):
 
 class TaskBase(BaseModel):
     """Base task schema"""
-    input_text: str = Field(..., max_length=500)
-    speech_length: int = Field(default=0, ge=0)
+    inputText: str = Field(..., max_length=500, serialization_alias="inputText")
+    speechLength: int = Field(default=0, ge=0, serialization_alias="speechLength")
     temperature: float = Field(default=0.8, ge=0.1, le=2.0)
-    top_p: float = Field(default=0.8, ge=0.0, le=1.0)
-    top_k: int = Field(default=30, ge=0, le=100)
-    emo_weight: float = Field(default=0.65, ge=0.0, le=1.0)
-    emo_mode: str = Field(default="speaker")
+    topP: float = Field(default=0.8, ge=0.0, le=1.0, serialization_alias="topP")
+    topK: int = Field(default=30, ge=0, le=100, serialization_alias="topK")
+    emoWeight: float = Field(default=0.65, ge=0.0, le=1.0, serialization_alias="emoWeight")
+    emoMode: str = Field(default="speaker", serialization_alias="emoMode")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class TaskCreate(TaskBase):
@@ -38,21 +40,23 @@ class TaskCreate(TaskBase):
 
 class TaskInfo(BaseModel):
     """Task information response schema"""
-    task_id: str
+    taskId: str = Field(..., serialization_alias="taskId")
     status: TaskStatusEnum
     progress: float = Field(default=0.0, ge=0.0, le=1.0)
     message: str = ""
-    created_at: datetime
-    completed_at: Optional[datetime] = None
-    output_file: Optional[str] = None
+    createdAt: datetime = Field(..., serialization_alias="createdAt")
+    completedAt: Optional[datetime] = Field(None, serialization_alias="completedAt")
+    outputFile: Optional[str] = Field(None, serialization_alias="outputFile")
     error: Optional[str] = None
-    queue_position: Optional[int] = None
+    queuePosition: Optional[int] = Field(None, serialization_alias="queuePosition")
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class GenerateResponse(BaseModel):
     """Response model for generate endpoint"""
-    task_id: str
+    taskId: str = Field(..., serialization_alias="taskId")
     status: TaskStatusEnum
     message: str
+
+    model_config = ConfigDict(populate_by_name=True)

@@ -63,19 +63,19 @@ async def register(
         email=request.email,
         password=request.password,
         username=request.username,
-        display_name=request.display_name,
+        display_name=request.displayName,
     )
 
     # Generate token
     access_token = AuthService.create_access_token(user.id)
     expires_in = settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
-    print(f"✓ New user registered: {user.id} ({user.email})")
+    print(f"[OK] New user registered: {user.id} ({user.email})")
 
     return AuthResponse(
-        access_token=access_token,
-        token_type="bearer",
-        expires_in=expires_in,
+        accessToken=access_token,
+        tokenType="bearer",
+        expiresIn=expires_in,
         user=UserInfo.model_validate(user),
     )
 
@@ -86,19 +86,19 @@ async def login(
     session: AsyncSession = Depends(get_session),
 ):
     """
-    Login with email and password.
+    Login with username/email and password.
 
     Returns an access token upon successful authentication.
     """
     user_service = UserService(session)
 
-    # Authenticate user
-    user = await user_service.authenticate(request.email, request.password)
+    # Authenticate user (accepts both email and username)
+    user = await user_service.authenticate(request.identifier, request.password)
 
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
+            detail="Invalid username/email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -106,12 +106,12 @@ async def login(
     access_token = AuthService.create_access_token(user.id)
     expires_in = settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
-    print(f"✓ User logged in: {user.id} ({user.email})")
+    print(f"[OK] User logged in: {user.id} ({user.email})")
 
     return AuthResponse(
-        access_token=access_token,
-        token_type="bearer",
-        expires_in=expires_in,
+        accessToken=access_token,
+        tokenType="bearer",
+        expiresIn=expires_in,
         user=UserInfo.model_validate(user),
     )
 
@@ -140,7 +140,7 @@ async def change_password(
     Requires `Authorization: Bearer <token>` header.
     """
     # Verify current password
-    if not AuthService.verify_password(request.current_password, user.hashed_password):
+    if not AuthService.verify_password(request.currentPassword, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect",
@@ -148,7 +148,7 @@ async def change_password(
 
     # Update password
     user_service = UserService(session)
-    await user_service.update_password(user.id, request.new_password)
+    await user_service.update_password(user.id, request.newPassword)
 
     return MessageResponse(message="Password changed successfully")
 

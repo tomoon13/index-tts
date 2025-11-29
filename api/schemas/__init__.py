@@ -19,6 +19,14 @@ from api.schemas.auth import (
     MessageResponse,
     ChangePasswordRequest,
 )
+from api.schemas.user import (
+    UserCreate,
+    UserUpdate,
+    UserSetPassword,
+    UserListItem,
+    UserDetail,
+    UserListResponse,
+)
 
 __all__ = [
     "TaskInfo",
@@ -34,4 +42,10 @@ __all__ = [
     "AuthResponse",
     "MessageResponse",
     "ChangePasswordRequest",
+    "UserCreate",
+    "UserUpdate",
+    "UserSetPassword",
+    "UserListItem",
+    "UserDetail",
+    "UserListResponse",
 ]
