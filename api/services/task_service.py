@@ -84,6 +84,23 @@ class TaskService:
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
+    async def count_tasks(
+        self,
+        user_id: Optional[int] = None,
+        status: Optional[TaskStatus] = None,
+    ) -> int:
+        """Count tasks with optional filtering by user and status"""
+        query = select(func.count(Task.id))
+
+        if user_id is not None:
+            query = query.where(Task.user_id == user_id)
+
+        if status:
+            query = query.where(Task.status == status)
+
+        result = await self.session.execute(query)
+        return result.scalar() or 0
+
     async def update_task_status(
         self,
         task_id: str,

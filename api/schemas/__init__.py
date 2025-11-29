@@ -7,6 +7,7 @@ from api.schemas.task import (
     TaskCreate,
     TaskStatusEnum,
     GenerateResponse,
+    TaskListResponse,
 )
 from api.schemas.tts import TTSGenerateRequest
 from api.schemas.health import HealthResponse
@@ -33,6 +34,7 @@ __all__ = [
     "TaskCreate",
     "TaskStatusEnum",
     "GenerateResponse",
+    "TaskListResponse",
     "TTSGenerateRequest",
     "HealthResponse",
     "RegisterRequest",

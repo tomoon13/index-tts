@@ -60,3 +60,14 @@ class GenerateResponse(BaseModel):
     message: str
 
     model_config = ConfigDict(populate_by_name=True)
+
+
+class TaskListResponse(BaseModel):
+    """Paginated task list response"""
+    tasks: list[TaskInfo]
+    total: int = Field(..., description="Total number of tasks")
+    page: int = Field(..., ge=1, description="Current page number")
+    pageSize: int = Field(..., ge=1, le=100, serialization_alias="pageSize", description="Number of items per page")
+    totalPages: int = Field(..., ge=0, serialization_alias="totalPages", description="Total number of pages")
+
+    model_config = ConfigDict(populate_by_name=True)
