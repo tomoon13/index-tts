@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.join(project_root, "indextts"))
 from api.config import settings
 from api.database import init_db, close_db, async_session_maker
 from api.dependencies import set_tts_model, set_task_semaphore
-from api.routes import health_router, tts_router, tasks_router, auth_router, users_router
+from api.routes import health_router, jobs_router, auth_router, users_router
 from api.services import TaskService
 
 
@@ -250,5 +250,4 @@ app.add_middleware(RequestLoggingMiddleware)
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(users_router)
-app.include_router(tts_router)
-app.include_router(tasks_router)
+app.include_router(jobs_router)

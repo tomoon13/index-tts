@@ -1,15 +1,19 @@
 """
-TTS Routes
-==========
+TTS Jobs Routes
+===============
 
-TTS generation endpoints.
+Unified TTS job management endpoints following REST best practices.
+Implements HTTP 202 Accepted pattern for long-running tasks.
 """
 
 import os
 import uuid
+from datetime import datetime, timezone
+from math import ceil
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.config import settings
@@ -17,14 +21,34 @@ from api.database import get_session, async_session_maker
 from api.dependencies import get_tts_model, get_task_semaphore, get_current_user
 from api.models.task import TaskStatus
 from api.models.user import User
-from api.schemas import GenerateResponse, TaskStatusEnum
+from api.schemas import (
+    JobStatusEnum,
+    JobLinks,
+    JobCreateResponse,
+    JobInfo,
+    JobListItem,
+    JobListResponse,
+)
 from api.services import TaskService, TTSService, UserService
 from api.services.tts_service import TTSGenerationParams
 
-router = APIRouter(prefix="/v1/tts", tags=["TTS"])
+router = APIRouter(prefix="/v1/tts", tags=["TTS Jobs"])
 
 
-async def run_tts_generation(
+def _build_job_links(job_id: str) -> JobLinks:
+    """Build HATEOAS links for a job"""
+    return JobLinks(
+        self_link=f"/v1/tts/jobs/{job_id}",
+        audio=f"/v1/tts/jobs/{job_id}/audio",
+    )
+
+
+def _task_status_to_job_status(status: TaskStatus) -> JobStatusEnum:
+    """Convert database TaskStatus to API JobStatusEnum"""
+    return JobStatusEnum(status.value)
+
+
+async def _run_tts_generation(
     params: TTSGenerationParams,
     tts_model,
     semaphore,
@@ -45,21 +69,9 @@ async def run_tts_generation(
             )
             await session.commit()
 
-            # Progress callback
-            async def update_progress(progress: float, message: str):
-                await task_service.update_task_status(
-                    params.task_id,
-                    TaskStatus.PROCESSING,
-                    progress=progress,
-                    message=message,
-                )
-                await session.commit()
-
             # Sync progress callback wrapper
             def progress_callback(progress: float, message: str):
-                if params.task_id:
-                    # We can't easily await here, so we'll update at the end
-                    pass
+                pass  # Progress updates handled separately
 
             # Generate
             output_path = await tts_service.generate(params, progress_callback)
@@ -78,7 +90,7 @@ async def run_tts_generation(
 
             await session.commit()
 
-            print(f"✓ Task {params.task_id} completed: {output_path}")
+            print(f"[OK] Job {params.task_id} completed: {output_path}")
 
         except Exception as e:
             await task_service.update_task_status(
@@ -87,7 +99,7 @@ async def run_tts_generation(
                 error=str(e),
             )
             await session.commit()
-            print(f"✗ Task {params.task_id} failed: {e}")
+            print(f"[ERROR] Job {params.task_id} failed: {e}")
 
         finally:
             # Cleanup temp files
@@ -97,8 +109,8 @@ async def run_tts_generation(
             )
 
 
-@router.post("/generate", response_model=GenerateResponse)
-async def generate_speech(
+@router.post("/jobs", status_code=202)
+async def create_job(
     background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
@@ -141,26 +153,17 @@ async def generate_speech(
     emo_vector_calm: float = Form(0.0, ge=0.0, le=1.0),
 ):
     """
-    Generate speech from text with emotion control.
+    Create a new TTS generation job.
 
-    Creates an asynchronous generation task and returns a task ID.
-    Use the status and download endpoints to retrieve results.
+    Returns 202 Accepted with job details and Location header.
+    Poll GET /jobs/{job_id} to check status.
+    Download audio from GET /jobs/{job_id}/audio when completed.
     """
-    # Log request
-    print("\n" + "=" * 60)
-    print("📝 Generate Speech Request")
-    print("=" * 60)
-    print(f"User: {user.id} ({user.email})")
-    print(f"Text: {text[:100]}{'...' if len(text) > 100 else ''}")
-    print(f"Prompt Audio: {prompt_audio.filename}")
-    print(f"Emotion Mode: {emo_mode}")
-    print("=" * 60 + "\n")
-
     # Validate inputs
     if len(text) > settings.MAX_TEXT_LENGTH:
         raise HTTPException(400, f"Text too long (max {settings.MAX_TEXT_LENGTH})")
 
-    if prompt_audio.size > settings.MAX_AUDIO_SIZE:
+    if prompt_audio.size and prompt_audio.size > settings.MAX_AUDIO_SIZE:
         raise HTTPException(400, f"Audio too large (max {settings.MAX_AUDIO_SIZE} bytes)")
 
     # Validate audio format
@@ -181,14 +184,14 @@ async def generate_speech(
     if emo_mode == "text" and not emo_text:
         raise HTTPException(400, "emo_mode='text' requires emo_text")
 
-    # Generate task ID
-    task_id = uuid.uuid4().hex
+    # Generate job ID
+    job_id = uuid.uuid4().hex
 
     # Save uploaded files
     prompt_content = await prompt_audio.read()
     prompt_ext = os.path.splitext(prompt_audio.filename or ".wav")[1]
     prompt_path = await TTSService.save_upload_file(
-        prompt_content, f"prompt_{task_id}", prompt_ext
+        prompt_content, f"prompt_{job_id}", prompt_ext
     )
 
     emo_path = None
@@ -196,7 +199,7 @@ async def generate_speech(
         emo_content = await emo_audio.read()
         emo_ext = os.path.splitext(emo_audio.filename or ".wav")[1]
         emo_path = await TTSService.save_upload_file(
-            emo_content, f"emo_{task_id}", emo_ext
+            emo_content, f"emo_{job_id}", emo_ext
         )
 
     # Process emotion parameters
@@ -215,8 +218,8 @@ async def generate_speech(
 
     # Create task in database
     task_service = TaskService(session)
-    await task_service.create_task(
-        task_id=task_id,
+    task = await task_service.create_task(
+        task_id=job_id,
         user_id=user.id,
         input_text=text,
         speech_length=speech_length,
@@ -229,7 +232,7 @@ async def generate_speech(
 
     # Prepare generation parameters
     params = TTSGenerationParams(
-        task_id=task_id,
+        task_id=job_id,
         text=text,
         prompt_audio_path=prompt_path,
         emo_audio_path=emo_path,
@@ -254,12 +257,184 @@ async def generate_speech(
     )
 
     # Start background task
-    background_tasks.add_task(run_tts_generation, params, tts_model, semaphore, user.id)
+    background_tasks.add_task(_run_tts_generation, params, tts_model, semaphore, user.id)
 
-    print(f"✓ Task {task_id} created and queued for user {user.id}")
+    print(f"[OK] Job {job_id} created for user {user.id}")
 
-    return GenerateResponse(
-        taskId=task_id,
-        status=TaskStatusEnum.PENDING,
-        message="Task created successfully",
+    # Build response
+    created_at = task.created_at if task.created_at else datetime.now(timezone.utc)
+    response_data = JobCreateResponse(
+        job_id=job_id,
+        status=JobStatusEnum.PENDING,
+        message="Job created successfully",
+        created_at=created_at,
+        links=_build_job_links(job_id),
+    )
+
+    # Return 202 Accepted with Location header
+    return JSONResponse(
+        status_code=202,
+        content=response_data.model_dump(mode="json", by_alias=True),
+        headers={
+            "Location": f"/v1/tts/jobs/{job_id}",
+            "Retry-After": "2",
+        },
+    )
+
+
+@router.get("/jobs", response_model=JobListResponse)
+async def list_jobs(
+    user: User = Depends(get_current_user),
+    status: Optional[JobStatusEnum] = None,
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    List current user's jobs with pagination.
+
+    Optionally filter by status.
+    """
+    task_service = TaskService(session)
+
+    # Convert enum if provided
+    db_status = TaskStatus(status.value) if status else None
+
+    # Calculate offset
+    offset = (page - 1) * page_size
+
+    # Get total count
+    total = await task_service.count_tasks(user_id=user.id, status=db_status)
+
+    # Get tasks for current page
+    tasks = await task_service.get_tasks(
+        user_id=user.id,
+        status=db_status,
+        limit=page_size,
+        offset=offset
+    )
+
+    # Convert to response format
+    job_list = []
+    for task in tasks:
+        queue_position = None
+        if task.status == TaskStatus.PENDING:
+            queue_position = await task_service.get_queue_position(task.id)
+
+        job_list.append(JobListItem(
+            job_id=task.id,
+            status=_task_status_to_job_status(task.status),
+            progress=task.progress,
+            message=task.message,
+            created_at=task.created_at,
+            completed_at=task.completed_at,
+            error=task.error,
+            queue_position=queue_position,
+            links=_build_job_links(task.id),
+        ))
+
+    # Calculate total pages
+    total_pages = ceil(total / page_size) if total > 0 else 0
+
+    return JobListResponse(
+        jobs=job_list,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
+
+
+@router.get("/jobs/{job_id}", response_model=JobInfo)
+async def get_job(
+    job_id: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Get job status and details.
+
+    Returns current status, progress, and links to related resources.
+    """
+    task_service = TaskService(session)
+    task = await task_service.get_task(job_id, user_id=user.id)
+
+    if not task:
+        raise HTTPException(404, "Job not found")
+
+    queue_position = None
+    if task.status == TaskStatus.PENDING:
+        queue_position = await task_service.get_queue_position(job_id)
+
+    return JobInfo(
+        job_id=task.id,
+        status=_task_status_to_job_status(task.status),
+        progress=task.progress,
+        message=task.message,
+        created_at=task.created_at,
+        completed_at=task.completed_at,
+        error=task.error,
+        queue_position=queue_position,
+        links=_build_job_links(task.id),
+    )
+
+
+@router.delete("/jobs/{job_id}")
+async def delete_job(
+    job_id: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Delete a job and its output file.
+
+    Only the job owner can delete their jobs.
+    """
+    task_service = TaskService(session)
+
+    # Check if task belongs to user
+    task = await task_service.get_task(job_id, user_id=user.id)
+    if not task:
+        raise HTTPException(404, "Job not found")
+
+    success = await task_service.delete_task(job_id)
+    if not success:
+        raise HTTPException(404, "Job not found")
+
+    return {"message": "Job deleted successfully"}
+
+
+@router.get("/jobs/{job_id}/audio")
+async def download_audio(
+    job_id: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Download generated audio file.
+
+    Only available when job status is 'completed'.
+    """
+    task_service = TaskService(session)
+    task = await task_service.get_task(job_id, user_id=user.id)
+
+    if not task:
+        raise HTTPException(404, "Job not found")
+
+    if task.status != TaskStatus.COMPLETED:
+        raise HTTPException(
+            425,
+            f"Job not completed yet (status: {task.status.value})",
+        )
+
+    if not task.output_file:
+        raise HTTPException(404, "Output file not found")
+
+    if not os.path.exists(task.output_file):
+        raise HTTPException(404, "Output file not found on disk")
+
+    return FileResponse(
+        task.output_file,
+        media_type="audio/wav",
+        filename=f"{job_id}.wav",
     )

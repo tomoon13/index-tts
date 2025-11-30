@@ -9,6 +9,14 @@ from api.schemas.task import (
     GenerateResponse,
     TaskListResponse,
 )
+from api.schemas.job import (
+    JobStatusEnum,
+    JobLinks,
+    JobCreateResponse,
+    JobInfo,
+    JobListItem,
+    JobListResponse,
+)
 from api.schemas.tts import TTSGenerateRequest
 from api.schemas.health import HealthResponse
 from api.schemas.auth import (
@@ -30,13 +38,24 @@ from api.schemas.user import (
 )
 
 __all__ = [
+    # Task (legacy, kept for compatibility)
     "TaskInfo",
     "TaskCreate",
     "TaskStatusEnum",
     "GenerateResponse",
     "TaskListResponse",
+    # Job (new)
+    "JobStatusEnum",
+    "JobLinks",
+    "JobCreateResponse",
+    "JobInfo",
+    "JobListItem",
+    "JobListResponse",
+    # TTS
     "TTSGenerateRequest",
+    # Health
     "HealthResponse",
+    # Auth
     "RegisterRequest",
     "LoginRequest",
     "TokenResponse",
@@ -44,6 +63,7 @@ __all__ = [
     "AuthResponse",
     "MessageResponse",
     "ChangePasswordRequest",
+    # User
     "UserCreate",
     "UserUpdate",
     "UserSetPassword",
