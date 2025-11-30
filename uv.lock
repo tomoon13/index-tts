@@ -730,7 +730,7 @@ name = "contractions"
 version = "0.1.73"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "textsearch" },
+    { name = "textsearch", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bb/e4/725241b788963b460ce0118bfd5c505dd3d1bdd020ee740f9f39044ed4a7/contractions-0.1.73-py2.py3-none-any.whl", hash = "sha256:398cee3b69c37307a50dce4930d961a0f42b48fdae9562df73bed5683008d3bc", size = 8651, upload-time = "2022-11-15T14:05:54.573Z" },
@@ -786,7 +786,7 @@ wheels = [
 
 [[package]]
 name = "deepspeed"
-version = "0.18.2"
+version = "0.17.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "einops" },
@@ -802,7 +802,7 @@ dependencies = [
     { name = "torch", version = "2.8.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/74/cd/c4cdcc947db3d1f103223b2067e455710c5674acdff249289bc3c0501ecf/deepspeed-0.18.2.tar.gz", hash = "sha256:892c3213cfefe6df8692d699eae3ca37714cac87afe7f72d4b89acd1df3af1c0", size = 1610428, upload-time = "2025-11-05T19:23:34.49Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/38/10/a7f63e086c1e1c12e290c98363c748ef5ddd6313fde739d2aeccd5ed0cd4/deepspeed-0.17.1.tar.gz", hash = "sha256:6d6e21796982b9e024f489e1c211666cc6c0be6e344751368610b9d2da285d6e", size = 1547985, upload-time = "2025-06-09T22:53:11.543Z" }
 
 [[package]]
 name = "descript-audiotools"
@@ -1486,11 +1486,12 @@ api = [
     { name = "pydantic-settings" },
     { name = "pyjwt" },
     { name = "python-multipart" },
+    { name = "rich" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "uvicorn", extra = ["standard"] },
 ]
 deepspeed = [
-    { name = "deepspeed", marker = "sys_platform != 'win32'" },
+    { name = "deepspeed" },
 ]
 webui = [
     { name = "gradio" },
@@ -1503,7 +1504,7 @@ requires-dist = [
     { name = "bcrypt", marker = "extra == 'api'", specifier = ">=4.0.0" },
     { name = "cn2an", specifier = "==0.5.22" },
     { name = "cython", specifier = "==3.0.7" },
-    { name = "deepspeed", marker = "sys_platform != 'win32' and extra == 'deepspeed'", specifier = ">=0.14.0" },
+    { name = "deepspeed", marker = "extra == 'deepspeed'", specifier = "==0.17.1" },
     { name = "descript-audiotools", specifier = "==0.7.2" },
     { name = "einops", specifier = ">=0.8.1" },
     { name = "email-validator", marker = "extra == 'api'", specifier = ">=2.0.0" },
@@ -1526,6 +1527,7 @@ requires-dist = [
     { name = "pydantic-settings", marker = "extra == 'api'", specifier = ">=2.6.0" },
     { name = "pyjwt", marker = "extra == 'api'", specifier = ">=2.8.0" },
     { name = "python-multipart", marker = "extra == 'api'", specifier = ">=0.0.9" },
+    { name = "rich", marker = "extra == 'api'", specifier = ">=13.0.0" },
     { name = "safetensors", specifier = "==0.5.2" },
     { name = "sentencepiece", specifier = ">=0.2.1" },
     { name = "sqlalchemy", extras = ["asyncio"], marker = "extra == 'api'", specifier = ">=2.0.0" },
@@ -2231,6 +2233,9 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/3c/fb/95752eb635bb8ad27d101d71bef15bc63049de23f299e312878fc21cb2da/ninja-1.13.0-py3-none-musllinux_1_2_riscv64.whl", hash = "sha256:d741a5e6754e0bda767e3274a0f0deeef4807f1fec6c0d7921a0244018926ae5", size = 585106, upload-time = "2025-08-11T15:10:09.818Z" },
     { url = "https://files.pythonhosted.org/packages/c1/31/aa56a1a286703800c0cbe39fb4e82811c277772dc8cd084f442dd8e2938a/ninja-1.13.0-py3-none-musllinux_1_2_s390x.whl", hash = "sha256:e8bad11f8a00b64137e9b315b137d8bb6cbf3086fbdc43bf1f90fd33324d2e96", size = 707138, upload-time = "2025-08-11T15:10:11.366Z" },
     { url = "https://files.pythonhosted.org/packages/34/6f/5f5a54a1041af945130abdb2b8529cbef0cdcbbf9bcf3f4195378319d29a/ninja-1.13.0-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:b4f2a072db3c0f944c32793e91532d8948d20d9ab83da9c0c7c15b5768072200", size = 581758, upload-time = "2025-08-11T15:10:13.295Z" },
+    { url = "https://files.pythonhosted.org/packages/95/97/51359c77527d45943fe7a94d00a3843b81162e6c4244b3579fe8fc54cb9c/ninja-1.13.0-py3-none-win32.whl", hash = "sha256:8cfbb80b4a53456ae8a39f90ae3d7a2129f45ea164f43fadfa15dc38c4aef1c9", size = 267201, upload-time = "2025-08-11T15:10:15.158Z" },
+    { url = "https://files.pythonhosted.org/packages/29/45/c0adfbfb0b5895aa18cec400c535b4f7ff3e52536e0403602fc1a23f7de9/ninja-1.13.0-py3-none-win_amd64.whl", hash = "sha256:fb8ee8719f8af47fed145cced4a85f0755dd55d45b2bddaf7431fa89803c5f3e", size = 309975, upload-time = "2025-08-11T15:10:16.697Z" },
+    { url = "https://files.pythonhosted.org/packages/df/93/a7b983643d1253bb223234b5b226e69de6cda02b76cdca7770f684b795f5/ninja-1.13.0-py3-none-win_arm64.whl", hash = "sha256:3c0b40b1f0bba764644385319028650087b4c1b18cdfa6f45cb39a3669b81aa9", size = 290806, upload-time = "2025-08-11T15:10:18.018Z" },
 ]
 
 [[package]]
@@ -3951,8 +3956,8 @@ name = "textsearch"
 version = "0.0.24"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "anyascii" },
-    { name = "pyahocorasick" },
+    { name = "anyascii", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
+    { name = "pyahocorasick", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5e/7c/18ab4807196aac89a114a98732462436cbd48db16873dc4669087f354bc7/textsearch-0.0.24.tar.gz", hash = "sha256:2d23b5c3116715b65bccc18bc870ecc236ec8480d48cd5f257cc60bf66bb241a", size = 49755, upload-time = "2022-09-02T14:04:42.124Z" }
 wheels = [
@@ -4552,8 +4557,8 @@ name = "wetext"
 version = "0.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "contractions" },
-    { name = "kaldifst" },
+    { name = "contractions", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
+    { name = "kaldifst", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e1/5b/06df7203e09cedb5a7c48024e22d3a13d4595d9516735c74fe429f3c5407/wetext-0.1.2.tar.gz", hash = "sha256:a9f751878f4ac85058b194fe4b31f65e49d765f90f557d5c150b933511746b22", size = 1709448, upload-time = "2025-11-28T07:33:48.902Z" }
 wheels = [

@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # Task settings
     MAX_CONCURRENT_TASKS: int = 3
     TASK_TIMEOUT: int = 300  # seconds
-    TASK_RETENTION: int = 3600  # seconds
+    TASK_RETENTION: int = -1  # seconds, -1 to disable cleanup
     CLEANUP_INTERVAL: int = 600  # seconds
 
     # File settings
@@ -45,21 +45,38 @@ class Settings(BaseSettings):
 
     # Supported audio formats
     SUPPORTED_AUDIO_FORMATS: Set[str] = {
-        ".wav", ".mp3", ".aac", ".m4a", ".flac", ".ogg",
-        ".opus", ".wma", ".aiff", ".au", ".raw"
+        ".wav",
+        ".mp3",
+        ".aac",
+        ".m4a",
+        ".flac",
+        ".ogg",
+        ".opus",
+        ".wma",
+        ".aiff",
+        ".au",
+        ".raw",
     }
     SUPPORTED_AUDIO_MIMETYPES: Set[str] = {
-        "audio/wav", "audio/wave", "audio/x-wav",
-        "audio/mpeg", "audio/mp3",
-        "audio/aac", "audio/x-aac",
-        "audio/mp4", "audio/x-m4a",
-        "audio/flac", "audio/x-flac",
-        "audio/ogg", "audio/vorbis",
+        "audio/wav",
+        "audio/wave",
+        "audio/x-wav",
+        "audio/mpeg",
+        "audio/mp3",
+        "audio/aac",
+        "audio/x-aac",
+        "audio/mp4",
+        "audio/x-m4a",
+        "audio/flac",
+        "audio/x-flac",
+        "audio/ogg",
+        "audio/vorbis",
         "audio/opus",
         "audio/x-ms-wma",
-        "audio/aiff", "audio/x-aiff",
+        "audio/aiff",
+        "audio/x-aiff",
         "audio/basic",
-        "application/octet-stream"
+        "application/octet-stream",
     }
 
     # TTS model settings

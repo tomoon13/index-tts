@@ -9,7 +9,6 @@ import asyncio
 import os
 import sys
 import time
-import json
 import uuid
 from contextlib import asynccontextmanager
 
@@ -25,6 +24,7 @@ sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "indextts"))
 
 from api.config import settings
+from api.console import ConsoleUI, set_console_ui, log_http
 from api.database import init_db, close_db, async_session_maker
 from api.dependencies import set_tts_model, set_task_semaphore
 from api.routes import health_router, jobs_router, auth_router, users_router
@@ -37,6 +37,10 @@ from api.services import TaskService
 
 async def cleanup_old_tasks():
     """Periodically clean up old tasks"""
+    # Skip if cleanup is disabled
+    if settings.TASK_RETENTION < 0:
+        return
+
     while True:
         try:
             await asyncio.sleep(settings.CLEANUP_INTERVAL)
@@ -139,16 +143,25 @@ async def lifespan(app: FastAPI):
 
     # Start cleanup task
     cleanup_task = asyncio.create_task(cleanup_old_tasks())
-    print(f"✓ Cleanup task started (interval: {settings.CLEANUP_INTERVAL}s)")
+    if settings.TASK_RETENTION < 0:
+        print("✓ Task cleanup disabled (TASK_RETENTION=-1)")
+    else:
+        print(f"✓ Cleanup task started (interval: {settings.CLEANUP_INTERVAL}s, retention: {settings.TASK_RETENTION}s)")
 
     print("=" * 60)
     print(f"Server ready at http://{settings.HOST}:{settings.PORT}")
     print(f"API docs at http://{settings.HOST}:{settings.PORT}/docs")
     print("=" * 60)
 
+    # Start console UI
+    console_ui = ConsoleUI()
+    set_console_ui(console_ui)
+    await console_ui.start()
+
     yield
 
     # Shutdown
+    await console_ui.stop()
     print("\nShutting down...")
     cleanup_task.cancel()
     try:
@@ -164,62 +177,53 @@ async def lifespan(app: FastAPI):
 # ============================================================================
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Middleware to log all incoming requests"""
+    """Middleware to log all incoming requests to Rich console"""
 
     async def dispatch(self, request: Request, call_next):
         request_id = uuid.uuid4().hex[:8]
 
-        # Log request
-        print("\n" + "=" * 80)
-        print(f"📥 Incoming Request [{request_id}]")
-        print("=" * 80)
-        print(f"Method:      {request.method}")
-        print(f"Path:        {request.url.path}")
-        print(f"Client:      {request.client.host}:{request.client.port}")
-
-        # Log query params
-        if request.query_params:
-            print("\nQuery Params:")
-            for key, value in request.query_params.items():
-                print(f"  {key}: {value}")
-
-        print("=" * 80)
-
         # Process request
         start_time = time.time()
         response = await call_next(request)
-        process_time = time.time() - start_time
+        duration_ms = (time.time() - start_time) * 1000
 
-        # Log response
-        print(f"\n📤 Response [{request_id}]")
-        print(f"Status:      {response.status_code}")
-        print(f"Process Time: {process_time:.3f}s")
-
-        # Handle JSON response logging
+        # Capture response body for JSON responses
+        response_body = ""
         content_type = response.headers.get("content-type", "")
         if content_type.startswith("application/json"):
-            try:
-                response_body = b""
-                async for chunk in response.body_iterator:
-                    response_body += chunk
+            # Read and reconstruct response
+            body_bytes = b""
+            async for chunk in response.body_iterator:
+                body_bytes += chunk
+            response_body = body_bytes.decode("utf-8", errors="replace")
 
-                try:
-                    json_data = json.loads(response_body.decode())
-                    print("\nResponse Body:")
-                    print(json.dumps(json_data, indent=2, ensure_ascii=False))
-                except json.JSONDecodeError:
-                    pass
+            # Log to Rich console
+            log_http(
+                method=request.method,
+                path=request.url.path,
+                status=response.status_code,
+                duration_ms=duration_ms,
+                request_id=request_id,
+                response_body=response_body,
+            )
 
-                return Response(
-                    content=response_body,
-                    status_code=response.status_code,
-                    headers=dict(response.headers),
-                    media_type=response.media_type,
-                )
-            except Exception:
-                pass
+            # Return new response with captured body
+            return Response(
+                content=body_bytes,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+                media_type=response.media_type,
+            )
 
-        print("=" * 80 + "\n")
+        # Log without body for non-JSON responses
+        log_http(
+            method=request.method,
+            path=request.url.path,
+            status=response.status_code,
+            duration_ms=duration_ms,
+            request_id=request_id,
+        )
+
         return response
 
 

@@ -78,11 +78,11 @@ api = [
   "bcrypt>=4.0.0",
   "pyjwt>=2.8.0",
   "email-validator>=2.0.0",
+  "rich>=13.0.0",
 ]
 # To install the DeepSpeed support, use `uv sync --extra deepspeed` (or `--all-extras`).
-# On Windows, manually install from: https://github.com/S95Sedan/Deepspeed-Windows/releases
 deepspeed = [
-  "deepspeed>=0.14.0 ; sys_platform != 'win32'",
+  "deepspeed==0.17.1",
 ]
 
 [project.urls]

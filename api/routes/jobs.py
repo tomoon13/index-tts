@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.config import settings
+from api.console import log_tts
 from api.database import get_session, async_session_maker
 from api.dependencies import get_tts_model, get_task_semaphore, get_current_user
 from api.models.task import TaskStatus
@@ -55,6 +56,44 @@ async def _run_tts_generation(
     user_id: int,
 ):
     """Background task for TTS generation"""
+    import asyncio
+
+    # Get the running event loop
+    loop = asyncio.get_running_loop()
+
+    # Track last update to avoid too frequent DB writes
+    last_progress = {"value": 0.0}
+
+    async def _update_progress_in_db(progress: float, message: str):
+        """Update progress in a new database session"""
+        try:
+            async with async_session_maker() as progress_session:
+                progress_task_service = TaskService(progress_session)
+                await progress_task_service.update_task_status(
+                    params.task_id,
+                    TaskStatus.PROCESSING,
+                    progress=progress,
+                    message=message,
+                )
+                await progress_session.commit()
+                last_progress["value"] = progress
+                # Log to console UI
+                log_tts(params.task_id, "progress", message, progress)
+        except Exception as e:
+            print(f"[WARN] Failed to update progress: {e}")
+
+    def on_model_progress(value=None, desc="", **kwargs):
+        """Sync callback from model thread - schedule async DB update"""
+        if value is None:
+            return
+        # Only update if progress changed significantly (>5%)
+        if abs(value - last_progress["value"]) >= 0.05:
+            # Schedule async update from sync thread
+            asyncio.run_coroutine_threadsafe(
+                _update_progress_in_db(value, desc),
+                loop
+            )
+
     async with async_session_maker() as session:
         task_service = TaskService(session)
         user_service = UserService(session)
@@ -68,13 +107,18 @@ async def _run_tts_generation(
                 message="Starting generation...",
             )
             await session.commit()
+            log_tts(params.task_id, "started", "Starting generation...")
 
-            # Sync progress callback wrapper
-            def progress_callback(progress: float, message: str):
-                pass  # Progress updates handled separately
+            # Set model's progress callback
+            original_gr_progress = tts_model.gr_progress
+            tts_model.gr_progress = on_model_progress
 
-            # Generate
-            output_path = await tts_service.generate(params, progress_callback)
+            try:
+                # Generate
+                output_path = await tts_service.generate(params, None)
+            finally:
+                # Restore original callback
+                tts_model.gr_progress = original_gr_progress
 
             # Update completed
             await task_service.update_task_status(
@@ -89,8 +133,7 @@ async def _run_tts_generation(
             await user_service.increment_generation_count(user_id)
 
             await session.commit()
-
-            print(f"[OK] Job {params.task_id} completed: {output_path}")
+            log_tts(params.task_id, "completed", "Generation completed", 1.0)
 
         except Exception as e:
             await task_service.update_task_status(
@@ -99,7 +142,7 @@ async def _run_tts_generation(
                 error=str(e),
             )
             await session.commit()
-            print(f"[ERROR] Job {params.task_id} failed: {e}")
+            log_tts(params.task_id, "failed", str(e))
 
         finally:
             # Cleanup temp files
@@ -229,6 +272,7 @@ async def create_job(
         emo_weight=emo_weight,
         emo_mode=emo_mode,
     )
+    await session.commit()  # Commit to make task visible to other sessions
 
     # Prepare generation parameters
     params = TTSGenerationParams(
@@ -259,7 +303,8 @@ async def create_job(
     # Start background task
     background_tasks.add_task(_run_tts_generation, params, tts_model, semaphore, user.id)
 
-    print(f"[OK] Job {job_id} created for user {user.id}")
+    # Log to console UI
+    log_tts(job_id, "created", f"Text: {text[:50]}..." if len(text) > 50 else f"Text: {text}")
 
     # Build response
     created_at = task.created_at if task.created_at else datetime.now(timezone.utc)
