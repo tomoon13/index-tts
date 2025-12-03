@@ -1,6 +1,6 @@
 """
-IndexTTS2 REST API Service
-==========================
+TTS REST API Service
+====================
 
 Main FastAPI application entry point.
 """
@@ -67,7 +67,7 @@ async def cleanup_old_tasks():
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     print("=" * 60)
-    print("IndexTTS2 REST API Service")
+    print("TTS REST API Service")
     print("=" * 60)
 
     # Check required model files
@@ -114,7 +114,7 @@ async def lifespan(app: FastAPI):
         print("⚠ Warning: Using default JWT_SECRET_KEY. Set a secure key in production!")
 
     # Load TTS model
-    print("\nLoading IndexTTS2 model...")
+    print("\nLoading TTS model...")
     try:
         from indextts.infer_v2 import IndexTTS2
         import speech_length_patch  # Enable speech_length parameter
@@ -232,8 +232,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 # ============================================================================
 
 app = FastAPI(
-    title="IndexTTS2 API",
-    description="REST API for IndexTTS2 text-to-speech generation",
+    title="TTS API",
+    description="REST API for text-to-speech generation",
     version="1.0.0",
     lifespan=lifespan,
 )

@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     CORS_ALLOW_HEADERS: List[str] = ["*"]
 
     # Database settings
-    DATABASE_URL: str = "sqlite+aiosqlite:///./data/indextts.db"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./data/tts.db"
 
     # Model settings
     MODEL_DIR: str = "./checkpoints"

@@ -21,7 +21,7 @@ router = APIRouter(tags=["General"])
 async def root():
     """Root endpoint"""
     return {
-        "service": "IndexTTS2 API",
+        "service": "TTS API",
         "version": "1.0.0",
         "docs": "/docs",
     }
